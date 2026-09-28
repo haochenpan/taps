@@ -21,6 +21,11 @@ def test_cholesky_app(
     app.run(engine, tmp_path)
     app.close()
 
+    assert [path.name for path in tmp_path.iterdir()] == ['factor.npy']
+    factor = numpy.load(tmp_path / 'factor.npy')
+    assert factor.shape == (matrix_size, matrix_size)
+    assert factor.dtype == numpy.float64
+
 
 def test_mismatched_size_error() -> None:
     with pytest.raises(

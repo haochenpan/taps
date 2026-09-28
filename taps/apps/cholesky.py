@@ -175,3 +175,7 @@ class CholeskyApp:
             logger.log(APP_LOG_LEVEL, f'Output matrix:\n{lower}')
         else:
             logger.log(APP_LOG_LEVEL, f'Output matrix: {lower.shape}')
+
+        factor_path = run_dir / 'factor.npy'
+        numpy.save(factor_path, lower)
+        logger.log(APP_LOG_LEVEL, f'Saved factor to {factor_path}')
