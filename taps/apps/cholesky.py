@@ -141,32 +141,37 @@ class CholeskyApp:
                     matrix[i:end_i, k:end_k],
                 )
 
-            gemm_tasks: dict[tuple[int, int], TaskFuture[Array]] = {}
-
-            for i in range(k + block_size, n, block_size):
-                end_i = min(i + block_size, n)
-                for j in range(i, n, block_size):
-                    end_j = min(j + block_size, n)
-
-                    syrk_task = engine.submit(
-                        syrk,
-                        matrix[i:end_i, j:end_j],
-                        lower_tasks[(i, k)],
-                    )
-
-                    gemm_tasks[(i, j)] = engine.submit(
-                        gemm,
-                        syrk_task,
-                        lower_tasks[(i, k)],
-                        lower_tasks[(j, k)],
-                    )
-
+            # The trailing update needs the transpose of each tile in this
+            # panel, which a task future cannot provide, so wait for the
+            # panel first.
             for (i, j), tile in lower_tasks.items():
                 end_i = min(i + block_size, n)
                 end_j = min(j + block_size, n)
                 lower[i:end_i, j:end_j] = tile.result()
 
-            for (i, j), tile in gemm_tasks.items():
+            update_tasks: dict[tuple[int, int], TaskFuture[Array]] = {}
+
+            # Update the trailing lower triangle: A_ij -= L_ik L_jk^T.
+            for i in range(k + block_size, n, block_size):
+                end_i = min(i + block_size, n)
+
+                update_tasks[(i, i)] = engine.submit(
+                    syrk,
+                    matrix[i:end_i, i:end_i],
+                    lower[i:end_i, k:end_k],
+                )
+
+                for j in range(k + block_size, i, block_size):
+                    end_j = min(j + block_size, n)
+
+                    update_tasks[(i, j)] = engine.submit(
+                        gemm,
+                        matrix[i:end_i, j:end_j],
+                        lower[i:end_i, k:end_k],
+                        lower[j:end_j, k:end_k].T,
+                    )
+
+            for (i, j), tile in update_tasks.items():
                 end_i = min(i + block_size, n)
                 end_j = min(j + block_size, n)
                 matrix[i:end_i, j:end_j] = tile.result()

@@ -41,3 +41,22 @@ def test_create_psd_matrix_seed() -> None:
     other = create_psd_matrix(8, seed=1)
     assert numpy.array_equal(first, second)
     assert not numpy.array_equal(first, other)
+
+
+@pytest.mark.parametrize(
+    ('matrix_size', 'block_size'),
+    ((4, 4), (8, 4), (16, 4), (24, 6)),
+)
+def test_cholesky_app_factor(
+    matrix_size: int,
+    block_size: int,
+    engine: Engine,
+    tmp_path: pathlib.Path,
+) -> None:
+    app = CholeskyApp(matrix_size, block_size, seed=0)
+    app.run(engine, tmp_path)
+    app.close()
+
+    factor = numpy.load(tmp_path / 'factor.npy')
+    matrix = create_psd_matrix(matrix_size, seed=0)
+    numpy.testing.assert_allclose(factor, numpy.linalg.cholesky(matrix))
