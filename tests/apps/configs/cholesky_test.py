@@ -4,12 +4,20 @@ import pytest
 from pydantic import ValidationError
 
 from taps.apps import App
+from taps.apps.cholesky import CholeskyApp
 from taps.apps.configs.cholesky import CholeskyConfig
 
 
 def test_create_app() -> None:
     config = CholeskyConfig(matrix_size=4, block_size=4)
     assert isinstance(config.get_app(), App)
+
+
+def test_create_app_with_seed() -> None:
+    config = CholeskyConfig(matrix_size=4, block_size=4, seed=0)
+    app = config.get_app()
+    assert isinstance(app, CholeskyApp)
+    assert app.seed == 0
 
 
 def test_validation_error() -> None:

@@ -26,6 +26,7 @@ class CholeskyConfig(AppConfig):
     )
     matrix_size: int = Field(description='Size of initial square matrix.')
     block_size: int = Field(description='Block size for tiled decomposition.')
+    seed: int | None = Field(None, description='Random seed.')
 
     @model_validator(mode='after')
     def _validate_sizes(self) -> Self:
@@ -56,4 +57,5 @@ class CholeskyConfig(AppConfig):
         return CholeskyApp(
             matrix_size=self.matrix_size,
             block_size=self.block_size,
+            seed=self.seed,
         )

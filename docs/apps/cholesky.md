@@ -1,6 +1,7 @@
 # Tiled Cholesky Decomposition
 
 Computes the Cholesky decomposition of a randomly generated positive definite matrix.
+Set `--app.seed` to generate the same matrix on every run.
 Based on the tiled algorithm from [this paper](https://www.labri.fr/perso/ejeannot/publications/paap12.pdf){target=_blank}.
 
 Tiled Cholesky decomposition is a canonical example of a dataflow-based workflow because of the inter-task dependencies between different tiles on the matrix.

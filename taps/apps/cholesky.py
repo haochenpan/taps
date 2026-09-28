@@ -43,16 +43,22 @@ def gemm(a: Array, b: Array, c: Array) -> Array:
     return a - numpy.dot(b, c)
 
 
-def create_psd_matrix(n: int) -> Array:
+def create_psd_matrix(n: int, seed: int | None = None) -> Array:
     """Create a positive semi-definite matrix.
 
     Args:
         n: Create an `n` x `n` square matrix.
+        seed: Seed for a local random number generator, so the same seed
+            always creates the same matrix. If `None`, numpy's global
+            random state is used.
 
     Returns:
         Random matrix that is positive semi-definite.
     """
-    psd = numpy.random.randn(n, n)
+    if seed is None:
+        psd = numpy.random.randn(n, n)
+    else:
+        psd = numpy.random.RandomState(seed).randn(n, n)
     psd = numpy.dot(psd, psd.T)
     psd += n * numpy.eye(n)
     return psd
@@ -67,9 +73,15 @@ class CholeskyApp:
     Args:
         matrix_size: Matrix side length.
         block_size: Block size length.
+        seed: Random seed for the input matrix.
     """
 
-    def __init__(self, matrix_size: int, block_size: int) -> None:
+    def __init__(
+        self,
+        matrix_size: int,
+        block_size: int,
+        seed: int | None = None,
+    ) -> None:
         if block_size > matrix_size or matrix_size % block_size != 0:
             raise ValueError(
                 'The matrix size must be greater than or equal to the block '
@@ -78,6 +90,7 @@ class CholeskyApp:
             )
         self.matrix_size = matrix_size
         self.block_size = block_size
+        self.seed = seed
 
     def close(self) -> None:
         """Close the application."""
@@ -92,7 +105,7 @@ class CholeskyApp:
         """
         max_print_size = 8
 
-        matrix = create_psd_matrix(self.matrix_size)
+        matrix = create_psd_matrix(self.matrix_size, seed=self.seed)
         lower = numpy.zeros_like(matrix)
 
         n = matrix.shape[0]
