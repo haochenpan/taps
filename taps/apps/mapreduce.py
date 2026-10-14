@@ -99,7 +99,7 @@ def generate_files(
 def _chunkify(iterable: list[T], n: int) -> Generator[list[T], None, None]:
     chunk_size = math.ceil(len(iterable) / n)
     for i in range(0, len(iterable), chunk_size):
-        yield iterable[i : min(i + chunk_size, len(iterable) - 1)]
+        yield iterable[i : min(i + chunk_size, len(iterable))]
 
 
 class MapreduceApp:

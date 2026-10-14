@@ -5,6 +5,7 @@ from collections import Counter
 
 import pytest
 
+from taps.apps.mapreduce import _chunkify
 from taps.apps.mapreduce import generate_files
 from taps.apps.mapreduce import generate_text
 from taps.apps.mapreduce import generate_word
@@ -35,6 +36,18 @@ def test_reduce_task() -> None:
     assert reduced['1'] == 4  # noqa: PLR2004
     assert reduced['2'] == 1
     assert reduced['3'] == 1
+
+
+@pytest.mark.parametrize(
+    ('items', 'n'),
+    ((1, 1), (1, 32), (3, 32), (10, 1), (10, 3), (10, 4), (64, 32), (100, 32)),
+)
+def test_chunkify_keeps_every_item(items: int, n: int) -> None:
+    chunks = list(_chunkify(list(range(items)), n))
+
+    assert [item for chunk in chunks for item in chunk] == list(range(items))
+    assert all(len(chunk) > 0 for chunk in chunks)
+    assert len(chunks) <= n
 
 
 def test_generate_word() -> None:
