@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import math
 import pathlib
@@ -150,6 +151,10 @@ class MapreduceApp:
     def run(self, engine: Engine, run_dir: pathlib.Path) -> None:
         """Run the application.
 
+        The word counts are saved to `counts.json` in `run_dir`: the number
+        of input files (`files`), the number of words (`total`), and each
+        word's count (`counts`), with keys sorted.
+
         Args:
             engine: Application execution engine.
             run_dir: Run directory.
@@ -178,7 +183,18 @@ class MapreduceApp:
         for word, count in most_common_words:
             logger.log(APP_LOG_LEVEL, f'{word} ({count:,})')
 
-        logger.log(
-            APP_LOG_LEVEL,
-            f'Total number of words: {sum(word_counts.values()):,}',
-        )
+        total = sum(word_counts.values())
+        logger.log(APP_LOG_LEVEL, f'Total number of words: {total:,}')
+
+        counts_path = run_dir / 'counts.json'
+        with open(counts_path, 'w') as f:
+            json.dump(
+                {
+                    'files': len(self.files),
+                    'total': total,
+                    'counts': word_counts,
+                },
+                f,
+                sort_keys=True,
+            )
+        logger.log(APP_LOG_LEVEL, f'Saved word counts to {counts_path}')

@@ -1,6 +1,7 @@
 # MapReduce
 
 Counts words in a text corpus using a mapreduce strategy.
+The number of input files, the number of words, and each word's count are saved to `counts.json` in the run directory.
 
 ## Installation
 

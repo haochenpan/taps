@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import pathlib
 from collections import Counter
 
@@ -103,6 +104,8 @@ def test_mapreduce_app_generate(
     data_dir = tmp_path / 'data'
     run_dir = tmp_path / 'run'
 
+    run_dir.mkdir()
+
     app = MapreduceApp(
         data_dir=data_dir,
         generate=True,
@@ -111,6 +114,12 @@ def test_mapreduce_app_generate(
     )
     app.run(engine, run_dir)
     app.close()
+
+    with open(run_dir / 'counts.json') as f:
+        saved = json.load(f)
+    assert saved['files'] == 3  # noqa: PLR2004
+    assert saved['total'] == 3 * 12
+    assert sum(saved['counts'].values()) == saved['total']
 
 
 def test_mapreduce_app_existing_files(
@@ -121,7 +130,39 @@ def test_mapreduce_app_existing_files(
     run_dir = tmp_path / 'run'
 
     generate_files(data_dir, file_count=3, words_per_file=12)
+    run_dir.mkdir()
 
     app = MapreduceApp(data_dir=data_dir, generate=False)
     app.run(engine, run_dir)
     app.close()
+
+
+def test_mapreduce_app_saves_the_counts(
+    engine: Engine,
+    tmp_path: pathlib.Path,
+) -> None:
+    data_dir = tmp_path / 'data'
+    run_dir = tmp_path / 'run'
+    (data_dir / 'sub').mkdir(parents=True)
+    run_dir.mkdir()
+    texts = {
+        'a.txt': 'the cat\nthe dog\n',
+        'sub/b.txt': 'a cat',
+        'c.txt': 'dog dog the',
+    }
+    for name, text in texts.items():
+        (data_dir / name).write_text(text)
+
+    app = MapreduceApp(data_dir=data_dir, map_tasks=2)
+    app.run(engine, run_dir)
+    app.close()
+
+    with open(run_dir / 'counts.json') as f:
+        saved = json.load(f)
+    assert saved == {
+        'counts': {'a': 1, 'cat': 2, 'dog': 3, 'the': 3},
+        'files': 3,
+        'total': 9,
+    }
+    assert list(saved) == ['counts', 'files', 'total']
+    assert list(saved['counts']) == sorted(saved['counts'])
