@@ -7,7 +7,6 @@ import pandas as pd
 
 from taps.engine import Engine
 from taps.engine import task
-from taps.engine import wait
 from taps.logging import APP_LOG_LEVEL
 
 logger = logging.getLogger(__name__)
@@ -318,7 +317,8 @@ class MontageApp:
             )
             mproject_outputs.append(out)
 
-        wait(mproject_outputs)
+        for future in mproject_outputs:
+            future.result()
         logger.log(APP_LOG_LEVEL, 'Projections completed')
 
         img_tbl_fut = engine.submit(
@@ -357,7 +357,8 @@ class MontageApp:
             )
             mdiff_futures.append(future)
 
-        wait(mdiff_futures)
+        for future in mdiff_futures:
+            future.result()
         logger.log(APP_LOG_LEVEL, 'Differences completed')
 
         corrections_fut = engine.submit(
@@ -401,7 +402,8 @@ class MontageApp:
 
             bgexec_futures.append(future)
 
-        wait(bgexec_futures)
+        for future in bgexec_futures:
+            future.result()
         logger.log(APP_LOG_LEVEL, 'Backgrounds completed')
 
         # mImgtbl writes absolute file names for an absolute directory, and

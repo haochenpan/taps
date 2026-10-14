@@ -251,3 +251,19 @@ def test_montage_app_coadds_corrected_images(
         str(output_dir / 'm17.fits'),
         str(output_dir / 'corrections'),
     )
+
+
+@pytest.mark.parametrize('tool', ('mProject', 'mDiff', 'mBackground'))
+def test_montage_app_fails_with_a_failed_task(
+    tool: str,
+    engine: Engine,
+    tmp_path: pathlib.Path,
+) -> None:
+    app = MontageApp(_image_folder(tmp_path))
+
+    with _montage_tools() as tools:
+        tools[tool].side_effect = RuntimeError(f'{tool} failed')
+        with pytest.raises(RuntimeError, match=f'{tool} failed'):
+            app.run(engine, tmp_path / 'run')
+        tools['mAdd'].assert_not_called()
+    app.close()
