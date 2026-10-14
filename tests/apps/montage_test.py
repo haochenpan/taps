@@ -157,3 +157,97 @@ image.fits
         app.run(engine, tmp_path)
 
     app.close()
+
+
+_DIFFS_TABLE = """\
+| cntr1 | cntr2 | plus | minus | diff |
+| int   | int   | char |  char | char |
+ 0 1 image1.fits image2.fits diff.fits
+"""
+_CORRECTIONS_TABLE = """\
+| id | a | b | c |
+   0   0   0   0
+   1   0   0   0
+   4   0   0   0
+"""
+_IMAGES_TABLE = """\
+fitshdr
+image.fits
+"""
+
+
+@contextlib.contextmanager
+def _montage_tools() -> Generator[dict[str, mock.MagicMock], None, None]:
+    """Mock the Montage tools the app calls; each writes the table it would."""
+
+    def write(path: str, text: str) -> None:
+        pathlib.Path(path).write_text(text)
+
+    def imgtbl(img_dir: str, tbl_path: str) -> None:
+        write(tbl_path, _IMAGES_TABLE)
+
+    def overlaps(img_tbl: str, diffs_tbl: str) -> None:
+        write(diffs_tbl, _DIFFS_TABLE)
+
+    def bgmodel(img_table: str, fits_tbl: str, corrections_tbl: str) -> None:
+        write(corrections_tbl, _CORRECTIONS_TABLE)
+
+    side_effects = {
+        'mImgtbl': imgtbl,
+        'mOverlaps': overlaps,
+        'mBgModel': bgmodel,
+    }
+    with contextlib.ExitStack() as stack:
+        tools = {
+            name: stack.enter_context(
+                mock.patch(
+                    f'montage_wrapper.{name}',
+                    side_effect=side_effects.get(name),
+                ),
+            )
+            for name in (
+                'mImgtbl',
+                'mMakeHdr',
+                'mProject',
+                'mOverlaps',
+                'mDiff',
+                'mFitExec',
+                'mBgModel',
+                'mBackground',
+                'mAdd',
+            )
+        }
+        yield tools
+
+
+def _image_folder(tmp_path: pathlib.Path) -> pathlib.Path:
+    img_folder = tmp_path / 'images'
+    img_folder.mkdir()
+    for i in range(3):
+        (img_folder / f'{i}.fits').touch()
+    return img_folder
+
+
+def test_montage_app_coadds_corrected_images(
+    engine: Engine,
+    tmp_path: pathlib.Path,
+) -> None:
+    run_dir = tmp_path / 'run'
+    app = MontageApp(_image_folder(tmp_path))
+
+    with _montage_tools() as tools:
+        app.run(engine, run_dir)
+    app.close()
+
+    output_dir = run_dir / 'data'
+    corrected_tbl = output_dir / 'corrected_images.tbl'
+    assert (
+        mock.call(str(output_dir / 'corrections'), str(corrected_tbl))
+        in tools['mImgtbl'].call_args_list
+    )
+    tools['mAdd'].assert_called_once_with(
+        str(corrected_tbl),
+        str(output_dir / 'Kimages.hdr'),
+        str(output_dir / 'm17.fits'),
+        str(output_dir / 'corrections'),
+    )

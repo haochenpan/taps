@@ -404,9 +404,18 @@ class MontageApp:
         wait(bgexec_futures)
         logger.log(APP_LOG_LEVEL, 'Backgrounds completed')
 
+        # mImgtbl writes absolute file names for an absolute directory, and
+        # mAdd ignores its directory argument for an absolute name, so the
+        # co-add reads the images the table names: the corrected ones.
+        corrected_tbl_fut = engine.submit(
+            mimgtbl,
+            img_dir=corrections_dir,
+            tbl_path=output_dir / 'corrected_images.tbl',
+        )
+
         mosaic_future = engine.submit(
             madd,
-            img_tbl_fut,
+            corrected_tbl_fut,
             img_hdr,
             output_dir / 'm17.fits',
             corrections_dir,

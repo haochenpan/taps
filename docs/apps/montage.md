@@ -59,4 +59,4 @@ python -m taps.run --app montage --app.img-folder data/Kimages --engine.executor
     rm -rf data/Kimages/._*
     ```
 
-This will produce a single final FITS file within `data/` inside of the run directory.
+This will produce a single final FITS file, `m17.fits`, the mosaic of the background-corrected images, within `data/` inside of the run directory.
