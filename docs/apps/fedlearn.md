@@ -33,6 +33,8 @@ python -m taps.run --app fedlearn \
 
 The script will automatically download the training and testing data to `data/fedlearn`.
 
+The training history of each client trained and the test loss of each round are saved to `results.json` in the run directory.
+
 !!! warning
 
     CPU training can sometimes hang with certain executors (e.g., process pool).

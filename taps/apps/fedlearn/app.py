@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import datetime
+import json
 import logging
 import pathlib
+from typing import Any
 
 import numpy
 import torch
@@ -15,7 +18,6 @@ from taps.apps.fedlearn.tasks import no_local_train
 from taps.apps.fedlearn.tasks import test_model
 from taps.apps.fedlearn.types import DataChoices
 from taps.apps.fedlearn.types import Result
-from taps.engine import as_completed
 from taps.engine import Engine
 from taps.engine import TaskFuture
 from taps.logging import APP_LOG_LEVEL
@@ -129,11 +131,14 @@ class FedlearnApp:
     def run(self, engine: Engine, run_dir: pathlib.Path) -> None:
         """Run the application.
 
+        The training history of each client trained and the test loss of
+        each round are saved to `results.json` in `run_dir`.
+
         Args:
             engine: Application execution engine.
             run_dir: Directory for run outputs.
         """
-        results = []
+        results: list[dict[str, Any]] = []
         for round_idx in range(self.rounds):
             preface = f'({round_idx + 1}/{self.rounds})'
             logger.log(
@@ -141,8 +146,8 @@ class FedlearnApp:
                 f'{preface} Starting local training for this round',
             )
 
-            train_result = self._federated_round(round_idx, engine, run_dir)
-            results.extend(train_result)
+            round_result = self._federated_round(round_idx, engine, run_dir)
+            results.append(round_result)
 
             if self.test_data is not None:
                 logger.log(
@@ -156,18 +161,23 @@ class FedlearnApp:
                     round_idx,
                     self.device,
                 ).result()
+                round_result['test'] = test_result
                 logger.log(
                     APP_LOG_LEVEL,
                     f'{preface} Finished testing with test_loss='
                     f'{test_result["test_loss"]:.3f}',
                 )
 
+        results_path = run_dir / 'results.json'
+        write_results(results, results_path)
+        logger.log(APP_LOG_LEVEL, f'Saved results to {results_path}')
+
     def _federated_round(
         self,
         round_idx: int,
         engine: Engine,
         run_dir: pathlib.Path,
-    ) -> list[Result]:
+    ) -> dict[str, Any]:
         """Perform a single round in federated learning.
 
         Specifically, this method runs the following steps:
@@ -182,11 +192,13 @@ class FedlearnApp:
             run_dir: Run directory for results.
 
         Returns:
-            List of results from each client.
+            The round's results: the index of each selected client and the
+            training history its task returned, in the order the clients
+            were selected, and the round's test result, `None` until the
+            round is tested.
         """
         job = local_train if self.train else no_local_train
         futures: list[TaskFuture[list[Result]]] = []
-        results: list[Result] = []
 
         size = int(max(1, len(self.clients) * self.participation))
         assert 1 <= size <= len(self.clients)
@@ -212,8 +224,7 @@ class FedlearnApp:
                 ),
             )
 
-        for fut in as_completed(futures):
-            results.extend(fut.result())
+        histories = [fut.result() for fut in futures]
 
         preface = f'({round_idx + 1}/{self.rounds})'
         logger.log(APP_LOG_LEVEL, f'{preface} Finished local training')
@@ -224,4 +235,31 @@ class FedlearnApp:
             f'{preface} Averaged the returned locally trained models',
         )
 
-        return results
+        return {
+            'round_idx': round_idx,
+            'clients': [client.idx for client in selected_clients],
+            'histories': histories,
+            'test': None,
+        }
+
+
+def write_results(results: list[dict[str, Any]], path: pathlib.Path) -> None:
+    """Write the results of each round as JSON.
+
+    A `datetime` in a result, such as the time a loss was logged, is
+    written in ISO 8601 format.
+
+    Args:
+        results: The results of each round.
+        path: The file to write.
+    """
+    with open(path, 'w') as f:
+        json.dump(results, f, default=_json_default, indent=2)
+
+
+def _json_default(value: Any) -> Any:
+    if isinstance(value, datetime.datetime):
+        return value.isoformat()
+    raise TypeError(
+        f'Object of type {type(value).__name__} is not JSON serializable',
+    )
