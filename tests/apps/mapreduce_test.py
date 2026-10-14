@@ -137,6 +137,27 @@ def test_mapreduce_app_existing_files(
     app.close()
 
 
+def test_mapreduce_app_sorts_the_files(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / 'data'
+    (data_dir / 'b').mkdir(parents=True)
+    names = ['a.txt', 'b/a.txt', 'b/c.txt', 'c.txt']
+    for name in names:
+        (data_dir / name).write_text(name)
+    glob = pathlib.Path.glob
+    monkeypatch.setattr(
+        pathlib.Path,
+        'glob',
+        lambda self, pattern: reversed(list(glob(self, pattern))),
+    )
+
+    app = MapreduceApp(data_dir=data_dir, map_tasks=2)
+
+    assert app.files == [data_dir / name for name in names]
+
+
 def test_mapreduce_app_saves_the_counts(
     engine: Engine,
     tmp_path: pathlib.Path,

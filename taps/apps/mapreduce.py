@@ -108,8 +108,8 @@ class MapreduceApp:
 
     Args:
         data_dir: Text file directory. Either contains existing text files
-            (including in subdirectories) or will be used to store the
-            randomly generated files.
+            (including in subdirectories), which are read in sorted order,
+            or will be used to store the randomly generated files.
         map_tasks: Number of map tasks. If `None`, one map task is generated
             per text file. Otherwise, files are evenly distributed across the
             map tasks.
@@ -133,7 +133,7 @@ class MapreduceApp:
             files = generate_files(data_dir, generated_files, generated_words)
             logger.log(APP_LOG_LEVEL, f'Generated {len(files)} in {data_dir}')
         else:
-            files = [f for f in data_dir.glob('**/*') if f.is_file()]
+            files = sorted(f for f in data_dir.glob('**/*') if f.is_file())
             logger.log(APP_LOG_LEVEL, f'Found {len(files)} in {data_dir}')
 
         self.files = files
